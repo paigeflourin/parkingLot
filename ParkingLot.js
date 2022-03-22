@@ -2,169 +2,115 @@ const fs = require('fs');
 const readline = require('readline');
 
 
-const fileName = process.argv.splice(2);
-console.log(fileName);
-
-readFile(fileName.toString());
-
 
 var parkingSpaces = new Array();
-var totalParkingSpace = 0;
-
-async function readFile(fileName) {
-
-    var lineReader = readline.createInterface({
-        input: fs.createReadStream(fileName)
-    });
-
-    
-    lineReader.on('line', function(line) {
-        //console.log('line from file', line);
-
-        processCommand(line);
-    });
-}
-
 
 function processCommand(lineValue) {
-    var command = lineValue.split(' ')[0];
-    var totalSlots, carSlotNumber, parkingSlotNumber, hoursParked;
+    let fragments = lineValue.split(' ');
+    let command =  fragments[0];
+    let totalSlots,carNumber;
 
     switch(command) {
         case 'create': 
-            totalSlots = lineValue.split(' ')[1];
-            createParkSlots(totalSlots);
-            console.log(`Created parkinglot with ${totalSlots} slots`);
+            totalSlots = fragments[1];
+            createParkSlots(totalSlots);      
             break;
         case 'park': 
-            carSlotNumber = parkCar(lineValue);
-            
-            if(carSlotNumber != -1) {
-                console.log(`Allocated slot number: ${carSlotNumber}`);
-            } else {
-                console.log(`Sorry, parking lot is full`);
-            }
+            carNumber = fragments[1];
+            parkCar(carNumber);         
             break;
         case 'leave':
-            let hoursParked = lineValue.split(' ')[2];
-            let carNumber = lineValue.split(' ')[1];
-            let slotNum = leaveParking(carNumber);
-            let chargeAmount = computeParkingAmt(hoursParked);
-
-            if(slotNum != -1) {
-                console.log(`Registration Number ${carNumber} from Slot ${slotNum + 1} has left with Charge ${chargeAmount}`);
-            } else {
-                console.log(`Registration Number ${carNumber} not found`);
-            }
+            const hoursParked = fragments[2];
+            carNumber = fragments[1];
+            leaveParking(carNumber, hoursParked);  
             break;
         case 'status':
-
-            let stat = getStatus();
-
-            if(stat.length > 1) {
-                console.log(stat.join('\n'));
-            }
+            getStatus();
+            break;
         default:
+            console.log(`command ${command} was not recognized`);
             break;
     }
 
 }
 
 function createParkSlots(sizeValue) {
-    if(sizeValue != 0) {
-        for(let i = 0; i < sizeValue; i++) {
-            parkingSpaces.push(null);
-        }
-        totalParkingSpace = sizeValue;
+    if(sizeValue !== 0) {
+        parkingSpaces.length = sizeValue;
+        parkingSpaces.fill(null)
+        console.log(`Created parkinglot with ${sizeValue} slots`);
     } else {
         console.error('0 slots provided');
     }
 }
 
 function parkCar(carValue) {
-    let totalParkingSpacesLength = parkingSpaces.length;
-    let carNumber  = carValue.split(' ')[1];
-
-    if(totalParkingSpacesLength != 0) {
-        if(findNearestSlots()){
-            for(let i = 0; i < totalParkingSpacesLength; i++) {
-                // console.log(carNumber);
-                if(parkingSpaces[i]== null) {
-                    if(carNumber){
-                        parkingSpaces[i] = carNumber;
-                        i++;
-                        // console.log(parkingSpaces[i]);
-                        return i;
-                    }
-                } 
-            }
-        } else {
-            return -1;
+    if(parkingSpaces.length !== 0) {
+        const nearestEmptySlot = parkingSpaces.findIndex((slot) => slot === null)
+        if (nearestEmptySlot === -1) {
+            console.log('Sorry, parking lot is full')
+            return
         }
+
+        parkingSpaces[nearestEmptySlot] = carValue
+
+        console.log(`Allocated slot number: ${nearestEmptySlot + 1}`)
+
     }
 }
 
-function findNearestSlots() {
-    let nearest = false;
-
-    for(let i = 0; i < parkingSpaces.length; i++) {
-        if(parkingSpaces[i] == null) {
-            nearest = true;
-        }
-    }
-    return nearest;
-}
-
-
-function leaveParking(carNumber) {
-    //find carNumber in the parkingPaces Array
-    let totalParkingSpacesLength = parkingSpaces.length;
+function leaveParking(carNumber, hoursParked) {
     let carSlotFreed = 0;
+    let chargeAmount = computeParkingAmt(hoursParked);
 
-    if(totalParkingSpacesLength != 0) {
+
+    if(parkingSpaces.length != 0) {
         carSlotFreed = parkingSpaces.indexOf(carNumber);
-        if(carSlotFreed != -1) {
-            console.log('FREEING PARKINGSLOT: ' + carSlotFreed + ' for: ' + carNumber);
+        if(carSlotFreed !== -1) {
             parkingSpaces[carSlotFreed] = null;
+           console.log(`Registration Number ${carNumber} from Slot ${carSlotFreed + 1} has left with Charge ${chargeAmount}`);
+        } else {
+            console.log(`Registration Number ${carNumber} not found`);
         }
     }
-    return carSlotFreed;
-
+    return;
 }
 
 
 function computeParkingAmt(hoursParkedVal) {
-    // Charge applicable is $10 for the first 2 hours and $10 for every additional hour.
-    let totalAmt = 10;
     const firstTwoHrs = 2;
     const increment = 10;
-
-    if(hoursParkedVal <= firstTwoHrs) {
-        return totalAmt;
-    } 
-
-    for(let i = firstTwoHrs; i < hoursParkedVal ; i++) {
-        totalAmt += increment;
-    }
-
-    //console.log(`hours: ${hoursParkedVal} total amount: ${totalAmt}`);
+    const excessHours = Math.max(0, hoursParkedVal - firstTwoHrs);
+    
+    const totalAmt = 10 + (excessHours * increment);
     return totalAmt;
 }
 
 function getStatus() {
-    let statArr = new Array();
     let totalParkingSpacesLength = parkingSpaces.length;
 
     if(totalParkingSpacesLength != 0) {
-        statArr.push('Slot No.  Registration No.');
+        console.log('Slot No.  Registration No.');
 
         for(let i = 0; i < totalParkingSpacesLength; i++) {
             if(parkingSpaces[i] != null) {
                 let slot = i + 1;
-                statArr.push(`${slot}   ${parkingSpaces[i]}`);
+                console.log(`${slot}   ${parkingSpaces[i]}`);
             }
         }
-
-        return statArr;
     }
 }
+
+/**
+ * Primary entrypoint for the application.
+ * This assumes that the user provides a filename to read commands from
+ * (accessibly via `process.argv[2]`).
+ */
+function main() {
+    const fileName = process.argv[2];
+    var lineReader = readline.createInterface({input: fs.createReadStream(fileName.toString())});
+    lineReader.on('line', (line) => processCommand(line));
+}
+
+
+main();
